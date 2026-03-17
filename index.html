@@ -2,54 +2,113 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Fruit Slice Game</title>
-
+  <title>Fruit Cutter Game</title>
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
-
-  <script src="js/game.js"></script>
+  <style>
+    body { margin:0; overflow:hidden; }
+  </style>
 </head>
-
 <body>
-<a-scene physics="debug: false" spawner cutter>
+
+<a-scene physics="debug: false">
 
   <a-assets>
-    <img id="sky" src="assets/sky.jpg">
-    <img id="ground" src="assets/ground.jpg">
-
     <a-asset-item id="fruitModel" src="assets/fruit.glb"></a-asset-item>
     <a-asset-item id="bombModel" src="assets/bomb.glb"></a-asset-item>
-
-    <audio id="sliceSound" src="assets/slice.mp3"></audio>
-    <audio id="boomSound" src="assets/boom.mp3"></audio>
+    <audio id="snd-cut" src="assets/cut.mp3" preload="auto"></audio>
+    <audio id="snd-bomb" src="assets/bomb.mp3" preload="auto"></audio>
+    <img id="bg-texture" src="assets/background.jpg">
   </a-assets>
 
-  <!-- НЕБО -->
-  <a-sky src="#sky"></a-sky>
+  <a-sky src="#bg-texture"></a-sky>
 
-  <!-- ЗЕМЛЯ -->
-  <a-plane src="#ground" rotation="-90 0 0" width="50" height="50" static-body></a-plane>
+  <a-box id="ground" static-body position="0 -1 0" width="30" height="1" depth="30" color="#333"></a-box>
 
-  <!-- СВЕТ -->
-  <a-entity light="type: ambient; intensity: 0.7"></a-entity>
-  <a-entity light="type: directional; intensity: 1" position="1 4 3"></a-entity>
-
-  <!-- КАМЕРА -->
-  <a-entity id="camera" camera look-controls position="0 1.6 5">
-    <a-entity id="cursor"
-      cursor="rayOrigin: entity"
-      raycaster="objects: .fruit, .bomb"
-      geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-      material="color: yellow">
-    </a-entity>
+  <a-entity id="player" camera position="0 1.6 5" look-controls>
+    <a-entity id="cursor" cursor="rayOrigin: entity" raycaster="objects: .enemy" 
+              position="0 0 -1" geometry="primitive: ring; radiusInner:0.02; radiusOuter:0.03" 
+              material="color: yellow; shader: flat"></a-entity>
   </a-entity>
 
-  <!-- СЧЕТ -->
-  <a-text id="scoreText" value="Score: 0" position="-1 2 -3" color="white"></a-text>
-
-  <!-- GAME OVER -->
-  <a-text id="gameOverText" value="" position="-1 1.5 -3" color="red"></a-text>
+  <a-text id="scoreText" value="Score: 0" position="0 3 -3" align="center" color="cyan" width="6"></a-text>
 
 </a-scene>
+
+<script>
+  let GAME = { state:'menu', score:0 };
+  let spawnInterval = null;
+
+  function startGame() {
+    GAME.state = 'playing';
+    GAME.score = 0;
+    document.querySelector('#scoreText').setAttribute('value','Score: 0');
+
+    if(spawnInterval) clearInterval(spawnInterval);
+    spawnInterval = setInterval(spawnObject, 1500);
+  }
+
+  function endGame() {
+    GAME.state = 'gameover';
+    clearInterval(spawnInterval);
+    alert('GAME OVER! Score: ' + GAME.score);
+    document.querySelectorAll('.enemy').forEach(el => el.parentNode.removeChild(el));
+  }
+
+  function spawnObject() {
+    if(GAME.state !== 'playing') return;
+    let scene = document.querySelector('a-scene');
+
+    let x = (Math.random()-0.5)*10;
+    let y = 4 + Math.random()*2;
+    let z = -5 - Math.random()*2;
+
+    let type = Math.random() < 0.8 ? 'fruit' : 'bomb';
+    let entity = document.createElement('a-entity');
+    entity.setAttribute('position', `${x} ${y} ${z}`);
+    entity.setAttribute('scale', '0.3 0.3 0.3');
+    entity.setAttribute('class','enemy '+type);
+    entity.setAttribute('gltf-model', type==='fruit' ? '#fruitModel' : '#bombModel');
+    entity.setAttribute('animation__fall', `property: position; to: ${x} -2 ${z}; dur: 4000; easing: linear`);
+    
+    scene.appendChild(entity);
+
+    // Удаляем объект после падения
+    setTimeout(()=>{
+      if(entity.parentNode && GAME.state==='playing'){
+        if(type==='bomb') endGame();
+        entity.parentNode.removeChild(entity);
+      }
+    }, 4100);
+  }
+
+  // Обработка клика/стрельбы
+  document.addEventListener('click', shoot);
+  document.addEventListener('touchstart', e => { e.preventDefault(); shoot(); }, {passive:false});
+
+  function shoot() {
+    if(GAME.state!=='playing') return;
+    let cursor = document.querySelector('#cursor');
+    if(!cursor || !cursor.components.raycaster) return;
+
+    let hits = cursor.components.raycaster.intersectedEls;
+    if(hits.length>0){
+      let target = hits[0];
+      if(target.classList.contains('fruit')){
+        GAME.score += 10;
+        document.querySelector('#scoreText').setAttribute('value','Score: '+GAME.score);
+        document.querySelector('#snd-cut').play();
+        target.parentNode.removeChild(target);
+      } else if(target.classList.contains('bomb')){
+        document.querySelector('#snd-bomb').play();
+        endGame();
+      }
+    }
+  }
+
+  // Автозапуск игры (можно заменить на кнопку)
+  startGame();
+</script>
+
 </body>
 </html>

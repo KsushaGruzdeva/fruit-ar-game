@@ -2,224 +2,100 @@
 <html>
 <head>
   <meta charset="utf-8">
-
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Fruit Cutter AR</title>
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <style>
+    body{margin:0;overflow:hidden;} #hud{position:absolute;top:10px;left:10px;color:cyan;font-size:20px;z-index:10;}
+  </style>
 </head>
+<body>
 
-<body style="margin:0; overflow:hidden; font-family:sans-serif;">
+<div id="hud">SCORE: 0</div>
 
-<!-- СТАРТОВЫЙ ЭКРАН -->
-<div id="startScreen" style="
-position:fixed;
-top:0; left:0;
-width:100%; height:100%;
-background:linear-gradient(black, #222);
-color:white;
-display:flex;
-flex-direction:column;
-align-items:center;
-justify-content:center;
-z-index:10;
-text-align:center;
-padding:20px;
-">
+<a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false">
 
-  <h1>🍉 Fruit Slice AR</h1>
+  <a-assets>
+    <a-asset-item id="fruitModel" src="assets/fruit.glb"></a-asset-item>
+    <a-asset-item id="bombModel" src="assets/bomb.glb"></a-asset-item>
+    <audio id="snd-cut" src="assets/cut.mp3" preload="auto"></audio>
+    <audio id="snd-bomb" src="assets/bomb.mp3" preload="auto"></audio>
+  </a-assets>
 
-  <p style="max-width:300px;">
-    🎯 Режь фрукты, нажимая на них<br>
-    💣 Не трогай бомбы<br>
-    ❗ Пропустишь фрукт — проиграешь
-  </p>
-
-  <button onclick="startGame()" style="
-    margin-top:20px;
-    padding:15px 25px;
-    font-size:18px;
-    border:none;
-    border-radius:10px;
-    background:#ff4d4d;
-    color:white;">
-    ▶ START
-  </button>
-
-</div>
-
-<!-- HUD -->
-<div id="hud" style="
-position:fixed;
-top:10px;
-left:10px;
-color:white;
-font-size:22px;
-z-index:5;
-text-shadow:0 0 5px black;">
-Score: <span id="score">0</span>
-</div>
-
-<!-- GAME OVER -->
-<div id="gameOverScreen" style="
-display:none;
-position:fixed;
-top:0; left:0;
-width:100%; height:100%;
-background:rgba(0,0,0,0.8);
-color:white;
-z-index:20;
-flex-direction:column;
-align-items:center;
-justify-content:center;
-text-align:center;
-">
-
-  <h1>💀 GAME OVER</h1>
-  <p id="finalScore"></p>
-
-  <button onclick="restartGame()" style="
-    margin-top:20px;
-    padding:15px 25px;
-    font-size:18px;
-    border:none;
-    border-radius:10px;
-    background:#4CAF50;
-    color:white;">
-    🔄 PLAY AGAIN
-  </button>
-
-</div>
-
-<a-scene
-  embedded
-  arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
->
-
-  <!-- КАМЕРА -->
-  <a-camera>
-    <a-cursor
-      fuse="false"
-      rayOrigin="mouse"
-      raycaster="objects: .fruit, .bomb">
-    </a-cursor>
-  </a-camera>
+  <a-entity camera look-controls>
+    <a-entity id="cursor" cursor="rayOrigin: entity" raycaster="objects: .enemy"
+              position="0 0 -1"
+              geometry="primitive:ring;radiusInner:0.015;radiusOuter:0.025"
+              material="color: yellow; shader: flat; opacity:0.7">
+    </a-entity>
+  </a-entity>
 
 </a-scene>
 
 <script>
-let score = 0;
-let gameActive = false;
+  let GAME = {state:'playing', score:0};
+  let spawnInterval = null;
 
-// СТАРТ
-function startGame() {
-  document.getElementById('startScreen').style.display = 'none';
-  score = 0;
-  document.getElementById('score').innerText = score;
-  gameActive = true;
-  spawnLoop();
-}
-
-// ПЕРЕЗАПУСК
-function restartGame() {
-  location.reload();
-}
-
-// СПАВН ЦИКЛ
-function spawnLoop() {
-  if (!gameActive) return;
-
-  spawnObject();
-  setTimeout(spawnLoop, 1200);
-}
-
-// СОЗДАНИЕ ОБЪЕКТОВ
-function spawnObject() {
-  const scene = document.querySelector('a-scene');
-
-  let isBomb = Math.random() < 0.2;
-
-  let obj = document.createElement('a-entity');
-
-  let x = (Math.random() - 0.5) * 2;
-  let y = Math.random() * 2 + 0.5;
-  let z = -3;
-
-  obj.setAttribute('position', `${x} ${y} ${z}`);
-  obj.setAttribute('scale', '0.5 0.5 0.5');
-
-  if (isBomb) {
-    obj.setAttribute('gltf-model', 'assets/bomb.glb');
-    obj.setAttribute('class', 'bomb');
-  } else {
-    obj.setAttribute('gltf-model', 'assets/fruit.glb');
-    obj.setAttribute('class', 'fruit');
+  function startSpawner() {
+    if(spawnInterval) clearInterval(spawnInterval);
+    spawnInterval = setInterval(spawnObject, 1500);
   }
 
-  // АНИМАЦИЯ
-  obj.setAttribute('animation', {
-    property: 'position',
-    to: `${x} ${y + 1.5} ${z}`,
-    dur: 2000
-  });
+  function spawnObject() {
+    if(GAME.state!=='playing') return;
+    let scene = document.querySelector('a-scene');
+    let x = (Math.random()-0.5)*4;
+    let y = 2 + Math.random()*2;
+    let z = -3 - Math.random()*2;
 
-  // КЛИК
-  obj.addEventListener('click', () => {
-    if (!gameActive) return;
+    let type = Math.random()<0.8 ? 'fruit' : 'bomb';
+    let entity = document.createElement('a-entity');
+    entity.setAttribute('position',`${x} ${y} ${z}`);
+    entity.setAttribute('scale','0.3 0.3 0.3');
+    entity.setAttribute('class','enemy '+type);
+    entity.setAttribute('gltf-model',type==='fruit'?'#fruitModel':'#bombModel');
+    entity.setAttribute('animation__fall',`property:position;to:${x} -2 ${z};dur:4000;easing:linear`);
+    scene.appendChild(entity);
 
-    if (obj.classList.contains('fruit')) {
-      sliceEffect(obj.getAttribute('position'));
-      score++;
-      document.getElementById('score').innerText = score;
-      obj.remove();
-    }
-
-    if (obj.classList.contains('bomb')) {
-      gameOver();
-    }
-  });
-
-  scene.appendChild(obj);
-
-  // ПРОПУСК = ПРОИГРЫШ
-  setTimeout(() => {
-    if (obj.parentNode && gameActive) {
-      obj.remove();
-      gameOver();
-    }
-  }, 2500);
-}
-
-// ЭФФЕКТ
-function sliceEffect(pos) {
-  const scene = document.querySelector('a-scene');
-
-  for (let i = 0; i < 6; i++) {
-    let part = document.createElement('a-sphere');
-
-    part.setAttribute('radius', '0.05');
-    part.setAttribute('color', 'red');
-    part.setAttribute('position', pos);
-
-    part.setAttribute('animation', {
-      property: 'position',
-      to: `${pos.x + (Math.random()-0.5)} ${pos.y + Math.random()} ${pos.z}`,
-      dur: 800
-    });
-
-    scene.appendChild(part);
-
-    setTimeout(() => part.remove(), 800);
+    setTimeout(()=>{
+      if(entity.parentNode && GAME.state==='playing'){
+        if(type==='bomb') endGame();
+        entity.parentNode.removeChild(entity);
+      }
+    },4100);
   }
-}
 
-// GAME OVER
-function gameOver() {
-  gameActive = false;
+  function shoot(){
+    if(GAME.state!=='playing') return;
+    let cursor = document.querySelector('#cursor');
+    if(!cursor || !cursor.components.raycaster) return;
+    let hits = cursor.components.raycaster.intersectedEls;
+    if(hits.length>0){
+      let target = hits[0];
+      if(target.classList.contains('fruit')){
+        GAME.score+=10;
+        document.getElementById('hud').textContent='SCORE: '+GAME.score;
+        document.querySelector('#snd-cut').play();
+        target.parentNode.removeChild(target);
+      } else if(target.classList.contains('bomb')){
+        document.querySelector('#snd-bomb').play();
+        endGame();
+      }
+    }
+  }
 
-  document.getElementById('finalScore').innerText =
-    "Score: " + score;
+  function endGame(){
+    GAME.state='gameover';
+    clearInterval(spawnInterval);
+    alert('GAME OVER! Score: '+GAME.score);
+    document.querySelectorAll('.enemy').forEach(el=>el.parentNode.removeChild(el));
+  }
 
-  document.getElementById('gameOverScreen').style.display = 'flex';
-}
+  document.addEventListener('click', shoot);
+  document.addEventListener('touchstart', shoot);
+
+  startSpawner();
 </script>
 
 </body>
