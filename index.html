@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Fruit Slice Game</title>
+
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+
+  <script src="js/game.js"></script>
+</head>
+
+<body>
+<a-scene physics="debug: false" spawner cutter>
+
+  <a-assets>
+    <img id="sky" src="assets/sky.jpg">
+    <img id="ground" src="assets/ground.jpg">
+
+    <a-asset-item id="fruitModel" src="assets/fruit.glb"></a-asset-item>
+    <a-asset-item id="bombModel" src="assets/bomb.glb"></a-asset-item>
+
+    <audio id="sliceSound" src="assets/slice.mp3"></audio>
+    <audio id="boomSound" src="assets/boom.mp3"></audio>
+  </a-assets>
+
+  <!-- НЕБО -->
+  <a-sky src="#sky"></a-sky>
+
+  <!-- ЗЕМЛЯ -->
+  <a-plane src="#ground" rotation="-90 0 0" width="50" height="50" static-body></a-plane>
+
+  <!-- СВЕТ -->
+  <a-entity light="type: ambient; intensity: 0.7"></a-entity>
+  <a-entity light="type: directional; intensity: 1" position="1 4 3"></a-entity>
+
+  <!-- КАМЕРА -->
+  <a-entity id="camera" camera look-controls position="0 1.6 5">
+    <a-entity id="cursor"
+      cursor="rayOrigin: entity"
+      raycaster="objects: .fruit, .bomb"
+      geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+      material="color: yellow">
+    </a-entity>
+  </a-entity>
+
+  <!-- СЧЕТ -->
+  <a-text id="scoreText" value="Score: 0" position="-1 2 -3" color="white"></a-text>
+
+  <!-- GAME OVER -->
+  <a-text id="gameOverText" value="" position="-1 1.5 -3" color="red"></a-text>
+
+</a-scene>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+</head>
+
+<body style="margin:0; overflow:hidden;">
+
+<!-- СТАРТ ЭКРАН -->
+<div id="startScreen" style="
+position:fixed;
+top:0;left:0;
+width:100%;height:100%;
+background:black;
+color:white;
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:10;">
+  <button onclick="startGame()" style="font-size:24px;padding:20px;">
+    START GAME
+  </button>
+</div>
+
+<!-- HUD -->
+<div id="hud" style="
+position:fixed;
+top:10px;
+left:10px;
+color:white;
+font-size:20px;
+z-index:5;">
+Score: <span id="score">0</span>
+</div>
+
+<a-scene
+  embedded
+  arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
+>
+
+  <!-- КАМЕРА -->
+  <a-camera position="0 1.6 0">
+    <a-cursor
+      fuse="false"
+      rayOrigin="mouse"
+      raycaster="objects: .fruit, .bomb">
+    </a-cursor>
+  </a-camera>
+
+</a-scene>
+
+<script>
+let score = 0;
+let gameActive = false;
+
+// СТАРТ
+function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  gameActive = true;
+  spawnLoop();
+}
+
+// СПАВН
+function spawnLoop() {
+  if (!gameActive) return;
+
+  spawnObject();
+
+  setTimeout(spawnLoop, 1500);
+}
+
+// СОЗДАНИЕ ФРУКТА
+function spawnObject() {
+  const scene = document.querySelector('a-scene');
+
+  let isBomb = Math.random() < 0.2;
+
+  let obj = document.createElement('a-entity');
+
+  let x = (Math.random() - 0.5) * 2;
+  let y = Math.random() * 2 + 0.5;
+  let z = -3;
+
+  obj.setAttribute('position', `${x} ${y} ${z}`);
+
+  if (isBomb) {
+    obj.setAttribute('gltf-model', 'assets/bomb.glb');
+    obj.setAttribute('class', 'bomb');
+  } else {
+    obj.setAttribute('gltf-model', 'assets/fruit.glb');
+    obj.setAttribute('class', 'fruit');
+  }
+
+  obj.setAttribute('scale', '0.5 0.5 0.5');
+
+  // АНИМАЦИЯ ПОЛЁТА
+  obj.setAttribute('animation', {
+    property: 'position',
+    to: `${x} ${y + 1.5} ${z}`,
+    dur: 2000
+  });
+
+  // КЛИК
+  obj.addEventListener('click', () => {
+    if (!gameActive) return;
+
+    if (obj.classList.contains('fruit')) {
+      sliceEffect(obj.getAttribute('position'));
+
+      score++;
+      document.getElementById('score').innerText = score;
+
+      obj.remove();
+    }
+
+    if (obj.classList.contains('bomb')) {
+      gameOver();
+    }
+  });
+
+  scene.appendChild(obj);
+
+  // ЕСЛИ ПРОПУСТИЛ → ПРОИГРЫШ
+  setTimeout(() => {
+    if (obj.parentNode && gameActive) {
+      obj.remove();
+      gameOver();
+    }
+  }, 2500);
+}
+
+// ЭФФЕКТ РАЗРЕЗА
+function sliceEffect(pos) {
+  const scene = document.querySelector('a-scene');
+
+  for (let i = 0; i < 6; i++) {
+    let part = document.createElement('a-sphere');
+
+    part.setAttribute('radius', '0.05');
+    part.setAttribute('color', 'red');
+    part.setAttribute('position', pos);
+
+    part.setAttribute('animation', {
+      property: 'position',
+      to: `${pos.x + (Math.random()-0.5)} ${pos.y + Math.random()} ${pos.z}`,
+      dur: 800
+    });
+
+    scene.appendChild(part);
+
+    setTimeout(() => part.remove(), 800);
+  }
+}
+
+// КОНЕЦ ИГРЫ
+function gameOver() {
+  gameActive = false;
+
+  alert("GAME OVER\nScore: " + score);
+
+  location.reload();
+}
+</script>
+
+</body>
+</html>
