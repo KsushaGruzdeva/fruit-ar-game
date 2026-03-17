@@ -60,6 +60,7 @@ body { margin:0; overflow:hidden; font-family: monospace; }
 <script>
 let GAME = { state:'menu', score:0, lat:0, lon:0 };
 let spawnInterval = null;
+let activeObjects = [];
 
 // --- Запрос разрешений: камера + GPS ---
 function requestPermissions() {
@@ -70,7 +71,7 @@ function requestPermissions() {
       startAR();
     }, err=>{
       alert("Невозможно получить GPS. Используются координаты по умолчанию.");
-      GAME.lat = 55.768236; // Москва, пример
+      GAME.lat = 55.768236; 
       GAME.lon = 37.502719;
       startAR();
     }, { enableHighAccuracy:true });
@@ -98,7 +99,7 @@ function offsetLatLon(lat, lon, northM, eastM) {
   return { lat: lat+dLat, lon: lon+dLon };
 }
 
-// --- Спавн фруктов и бомб относительно GPS ---
+// --- Спавн фруктов и бомб ---
 function startSpawner() {
   if(spawnInterval) clearInterval(spawnInterval);
   spawnInterval = setInterval(spawnObject, 1500);
@@ -110,8 +111,6 @@ function spawnObject() {
   if(!scene) return;
 
   const type = Math.random()<0.8?'fruit':'bomb';
-
-  // Случайное смещение 0-3 метра
   const offsetX = (Math.random()-0.5)*6;
   const offsetZ = -3 - Math.random()*2;
 
@@ -119,21 +118,17 @@ function spawnObject() {
   entity.setAttribute('class', 'enemy '+type);
   entity.setAttribute('gltf-model', type==='fruit'?'#fruitModel':'#bombModel');
   entity.setAttribute('scale', '0.3 0.3 0.3');
-
-  // Позиция относительно GPS (преобразуем метры в координаты)
-  const pos = offsetLatLon(GAME.lat, GAME.lon, 0, 0);
   entity.setAttribute('position', `${offsetX} 2 ${offsetZ}`);
-
-  // Анимация падения
   entity.setAttribute('animation__fall', `property: position; to:${offsetX} -2 ${offsetZ}; dur:4000; easing:linear`);
-  scene.appendChild(entity);
 
-  // Если объект долетает до земли
+  scene.appendChild(entity);
+  activeObjects.push(entity);
+
+  // Удаление объекта через 4,1 сек
   setTimeout(()=>{
-    if(entity.parentNode && GAME.state==='playing'){
-      if(type==='bomb') endGame();
-      entity.parentNode.removeChild(entity);
-    }
+    if(entity.parentNode) entity.parentNode.removeChild(entity);
+    const index = activeObjects.indexOf(entity);
+    if(index!==-1) activeObjects.splice(index,1);
   },4100);
 }
 
@@ -152,7 +147,9 @@ function shoot() {
       GAME.score+=10;
       updateHUD();
       document.querySelector('#snd-cut').play();
-      target.parentNode.removeChild(target);
+      if(target.parentNode) target.parentNode.removeChild(target);
+      const index = activeObjects.indexOf(target);
+      if(index!==-1) activeObjects.splice(index,1);
     } else if(target.classList.contains('bomb')){
       document.querySelector('#snd-bomb').play();
       endGame();
@@ -160,21 +157,24 @@ function shoot() {
   }
 }
 
+// --- Обновление HUD ---
 function updateHUD() {
   document.getElementById('hud').textContent='SCORE: '+GAME.score;
 }
 
+// --- Конец игры ---
 function endGame() {
+  if(GAME.state!=='playing') return;
   GAME.state='gameover';
   clearInterval(spawnInterval);
   spawnInterval=null;
+  activeObjects.forEach(el=>{ if(el.parentNode) el.parentNode.removeChild(el); });
+  activeObjects=[];
   document.getElementById('final-score').textContent='SCORE: '+GAME.score;
   document.getElementById('screen-gameover').style.display='flex';
-  document.querySelectorAll('.enemy').forEach(el=>{
-    if(el.parentNode) el.parentNode.removeChild(el);
-  });
 }
 
+// --- Перезапуск ---
 function restartGame() {
   GAME.state='playing';
   GAME.score=0;
