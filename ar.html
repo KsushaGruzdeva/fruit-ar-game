@@ -7,22 +7,43 @@
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
 </head>
 
-<body style="margin:0; overflow:hidden;">
+<body style="margin:0; overflow:hidden; font-family:sans-serif;">
 
-<!-- СТАРТ ЭКРАН -->
+<!-- СТАРТОВЫЙ ЭКРАН -->
 <div id="startScreen" style="
 position:fixed;
-top:0;left:0;
-width:100%;height:100%;
-background:black;
+top:0; left:0;
+width:100%; height:100%;
+background:linear-gradient(black, #222);
 color:white;
 display:flex;
+flex-direction:column;
 align-items:center;
 justify-content:center;
-z-index:10;">
-  <button onclick="startGame()" style="font-size:24px;padding:20px;">
-    START GAME
+z-index:10;
+text-align:center;
+padding:20px;
+">
+
+  <h1>🍉 Fruit Slice AR</h1>
+
+  <p style="max-width:300px;">
+    🎯 Режь фрукты, нажимая на них<br>
+    💣 Не трогай бомбы<br>
+    ❗ Пропустишь фрукт — проиграешь
+  </p>
+
+  <button onclick="startGame()" style="
+    margin-top:20px;
+    padding:15px 25px;
+    font-size:18px;
+    border:none;
+    border-radius:10px;
+    background:#ff4d4d;
+    color:white;">
+    ▶ START
   </button>
+
 </div>
 
 <!-- HUD -->
@@ -31,9 +52,41 @@ position:fixed;
 top:10px;
 left:10px;
 color:white;
-font-size:20px;
-z-index:5;">
+font-size:22px;
+z-index:5;
+text-shadow:0 0 5px black;">
 Score: <span id="score">0</span>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameOverScreen" style="
+display:none;
+position:fixed;
+top:0; left:0;
+width:100%; height:100%;
+background:rgba(0,0,0,0.8);
+color:white;
+z-index:20;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+text-align:center;
+">
+
+  <h1>💀 GAME OVER</h1>
+  <p id="finalScore"></p>
+
+  <button onclick="restartGame()" style="
+    margin-top:20px;
+    padding:15px 25px;
+    font-size:18px;
+    border:none;
+    border-radius:10px;
+    background:#4CAF50;
+    color:white;">
+    🔄 PLAY AGAIN
+  </button>
+
 </div>
 
 <a-scene
@@ -42,7 +95,7 @@ Score: <span id="score">0</span>
 >
 
   <!-- КАМЕРА -->
-  <a-camera position="0 1.6 0">
+  <a-camera>
     <a-cursor
       fuse="false"
       rayOrigin="mouse"
@@ -59,20 +112,26 @@ let gameActive = false;
 // СТАРТ
 function startGame() {
   document.getElementById('startScreen').style.display = 'none';
+  score = 0;
+  document.getElementById('score').innerText = score;
   gameActive = true;
   spawnLoop();
 }
 
-// СПАВН
+// ПЕРЕЗАПУСК
+function restartGame() {
+  location.reload();
+}
+
+// СПАВН ЦИКЛ
 function spawnLoop() {
   if (!gameActive) return;
 
   spawnObject();
-
-  setTimeout(spawnLoop, 1500);
+  setTimeout(spawnLoop, 1200);
 }
 
-// СОЗДАНИЕ ФРУКТА
+// СОЗДАНИЕ ОБЪЕКТОВ
 function spawnObject() {
   const scene = document.querySelector('a-scene');
 
@@ -85,6 +144,7 @@ function spawnObject() {
   let z = -3;
 
   obj.setAttribute('position', `${x} ${y} ${z}`);
+  obj.setAttribute('scale', '0.5 0.5 0.5');
 
   if (isBomb) {
     obj.setAttribute('gltf-model', 'assets/bomb.glb');
@@ -94,9 +154,7 @@ function spawnObject() {
     obj.setAttribute('class', 'fruit');
   }
 
-  obj.setAttribute('scale', '0.5 0.5 0.5');
-
-  // АНИМАЦИЯ ПОЛЁТА
+  // АНИМАЦИЯ
   obj.setAttribute('animation', {
     property: 'position',
     to: `${x} ${y + 1.5} ${z}`,
@@ -109,10 +167,8 @@ function spawnObject() {
 
     if (obj.classList.contains('fruit')) {
       sliceEffect(obj.getAttribute('position'));
-
       score++;
       document.getElementById('score').innerText = score;
-
       obj.remove();
     }
 
@@ -123,7 +179,7 @@ function spawnObject() {
 
   scene.appendChild(obj);
 
-  // ЕСЛИ ПРОПУСТИЛ → ПРОИГРЫШ
+  // ПРОПУСК = ПРОИГРЫШ
   setTimeout(() => {
     if (obj.parentNode && gameActive) {
       obj.remove();
@@ -132,7 +188,7 @@ function spawnObject() {
   }, 2500);
 }
 
-// ЭФФЕКТ РАЗРЕЗА
+// ЭФФЕКТ
 function sliceEffect(pos) {
   const scene = document.querySelector('a-scene');
 
@@ -155,13 +211,14 @@ function sliceEffect(pos) {
   }
 }
 
-// КОНЕЦ ИГРЫ
+// GAME OVER
 function gameOver() {
   gameActive = false;
 
-  alert("GAME OVER\nScore: " + score);
+  document.getElementById('finalScore').innerText =
+    "Score: " + score;
 
-  location.reload();
+  document.getElementById('gameOverScreen').style.display = 'flex';
 }
 </script>
 
